@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../auth_providers.dart';
+import 'sign_up_page.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key, this.errorMessage});
@@ -122,8 +123,19 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       child: const Text('Sign in'),
                     ),
                     const SizedBox(height: 12),
+                    OutlinedButton.icon(
+                      onPressed: () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const SignUpPage(),
+                        ),
+                      ),
+                      icon: const Icon(Icons.person_add_alt_outlined),
+                      label: const Text('Create an account'),
+                    ),
+                    const SizedBox(height: 12),
                     Text(
-                      'Accounts are provisioned by MUET administrators.',
+                      'Students register with a MUET student email address. '
+                      'Drivers and administrators need a provisioning code.',
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodySmall,
                     ),

@@ -1,5 +1,8 @@
 import '../domain/auth_repository.dart';
 import '../domain/authenticated_user.dart';
+import '../domain/sign_up_request.dart';
+import '../domain/sign_up_result.dart';
+import '../domain/user_role.dart';
 
 class AuthService {
   const AuthService(this._repository);
@@ -17,6 +20,17 @@ class AuthService {
     required String password,
   }) {
     return _repository.signIn(email: email, password: password);
+  }
+
+  Future<SignUpResult> signUp(SignUpRequest request) {
+    return _repository.signUp(request);
+  }
+
+  Future<bool> validateProvisioningCode({
+    required String code,
+    required UserRole role,
+  }) {
+    return _repository.validateProvisioningCode(code: code, role: role);
   }
 
   Future<void> signOut() {
