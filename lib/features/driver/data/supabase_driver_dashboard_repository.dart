@@ -40,6 +40,7 @@ class SupabaseDriverDashboardRepository implements DriverDashboardRepository {
     return DriverDashboardData(
       driverId: driverId,
       driverName: profile['full_name'] as String,
+      driverStatus: driver['status'] as String? ?? 'unknown',
       assignment: assignment,
       activeTrip: activeTrip,
     );

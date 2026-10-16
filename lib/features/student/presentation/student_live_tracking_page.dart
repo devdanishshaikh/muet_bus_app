@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/config/environment.dart';
 import '../../auth/domain/authenticated_user.dart';
@@ -9,8 +12,11 @@ import '../../auth/presentation/pages/unauthorized_page.dart';
 import '../domain/student_live_tracking.dart';
 import '../domain/student_tracking_selection.dart';
 import 'student_live_tracking_providers.dart';
+import 'student_notification_providers.dart';
+import 'student_stop_selection_providers.dart';
+import '../data/student_alert_monitor.dart';
 
-class StudentLiveTrackingPage extends ConsumerWidget {
+class StudentLiveTrackingPage extends ConsumerStatefulWidget {
   const StudentLiveTrackingPage({
     required this.user,
     this.routeId,
@@ -25,60 +31,129 @@ class StudentLiveTrackingPage extends ConsumerWidget {
   final bool showAppBar;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    if (user.role != UserRole.student) {
-      return UnauthorizedPage(user: user);
-    }
+  ConsumerState<StudentLiveTrackingPage> createState() =>
+      _StudentLiveTrackingPageState();
+}
 
-    final selection = routeId == null && busId == null
+class _StudentLiveTrackingPageState
+    extends ConsumerState<StudentLiveTrackingPage> {
+  Future<void> _refresh() async {
+    final selection = widget.routeId == null && widget.busId == null
         ? null
-        : StudentTrackingSelection(routeId: routeId, busId: busId);
+        : StudentTrackingSelection(
+            routeId: widget.routeId,
+            busId: widget.busId,
+          );
 
-    Future<void> refresh() async {
-      if (selection == null) {
-        ref.invalidate(activeStudentLiveTrackingProvider);
-        try {
-          await ref.read(activeStudentLiveTrackingProvider.future);
-        } catch (_) {}
-        return;
-      }
-
-      ref.invalidate(studentLiveTrackingProvider(selection));
+    if (selection == null) {
+      ref.invalidate(activeStudentLiveTrackingProvider);
       try {
-        await ref.read(studentLiveTrackingProvider(selection).future);
+        await ref.read(activeStudentLiveTrackingProvider.future);
       } catch (_) {}
+      return;
     }
 
-    void refreshNow() {
-      if (selection == null) {
-        ref.invalidate(activeStudentLiveTrackingProvider);
-      } else {
-        ref.invalidate(studentLiveTrackingProvider(selection));
-      }
+    ref.invalidate(studentLiveTrackingProvider(selection));
+    try {
+      await ref.read(studentLiveTrackingProvider(selection).future);
+    } catch (_) {}
+  }
+
+  void _refreshNow() {
+    final selection = widget.routeId == null && widget.busId == null
+        ? null
+        : StudentTrackingSelection(
+            routeId: widget.routeId,
+            busId: widget.busId,
+          );
+
+    if (selection == null) {
+      ref.invalidate(activeStudentLiveTrackingProvider);
+    } else {
+      ref.invalidate(studentLiveTrackingProvider(selection));
     }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Listen to realtime bus updates and check alerts
+    _listenToBusUpdates();
+  }
+
+  void _listenToBusUpdates() {
+    // Use a post-frame callback to start listening after the first build
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _subscribeToBusUpdates();
+    });
+  }
+
+  void _subscribeToBusUpdates() {
+    // Listen to the realtime stream provider
+    // ignore: deprecated_member_use
+    final stream = ref.read(activeStudentLiveTrackingStreamProvider.stream);
+    // Check if Supabase is initialized (won't be in test environment)
+    SupabaseClient? client;
+    try {
+      client = Supabase.instance.client;
+    } catch (_) {
+      client = null;
+    }
+    if (client == null) {
+      return;
+    }
+    final alertMonitor = StudentAlertMonitor(
+      notificationService: ref.read(studentNotificationServiceProvider),
+      selectionRepository: ref.read(studentStopSelectionRepositoryProvider),
+      client: client,
+    );
+    stream.listen((buses) {
+      if (!mounted) return;
+      for (final bus in buses) {
+        alertMonitor.processLocationUpdate(
+          profileId: widget.user.id,
+          tracking: bus,
+        );
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.user.role != UserRole.student) {
+      return UnauthorizedPage(user: widget.user);
+    }
+
+    final selection = widget.routeId == null && widget.busId == null
+        ? null
+        : StudentTrackingSelection(
+            routeId: widget.routeId,
+            busId: widget.busId,
+          );
 
     if (!Environment.isGoogleMapsConfigured) {
       return _TrackingChrome(
         title: selection == null ? 'Live Tracking' : 'Track bus',
-        showAppBar: showAppBar,
-        onRefresh: refreshNow,
+        showAppBar: widget.showAppBar,
+        onRefresh: _refreshNow,
         child: const _TrackingConfigurationError(),
       );
     }
 
     if (selection == null) {
-      final trackingState = ref.watch(activeStudentLiveTrackingProvider);
+      final trackingState = ref.watch(activeStudentLiveTrackingStreamProvider);
       return _TrackingChrome(
         title: 'Live Tracking',
-        showAppBar: showAppBar,
-        onRefresh: refreshNow,
+        showAppBar: widget.showAppBar,
+        onRefresh: _refreshNow,
         child: trackingState.when(
           loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => _TrackingError(onRetry: refreshNow),
+          error: (error, _) => _TrackingError(onRetry: _refreshNow),
           data: (buses) => _TrackingContent(
             buses: buses,
-            embedded: !showAppBar,
-            onRefresh: refresh,
+            embedded: !widget.showAppBar,
+            onRefresh: _refresh,
           ),
         ),
       );
@@ -87,15 +162,15 @@ class StudentLiveTrackingPage extends ConsumerWidget {
     final trackingState = ref.watch(studentLiveTrackingProvider(selection));
     return _TrackingChrome(
       title: 'Track bus',
-      showAppBar: showAppBar,
-      onRefresh: refreshNow,
+      showAppBar: widget.showAppBar,
+      onRefresh: _refreshNow,
       child: trackingState.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => _TrackingError(onRetry: refreshNow),
+        error: (error, _) => _TrackingError(onRetry: _refreshNow),
         data: (tracking) => _TrackingContent(
           buses: tracking == null ? const [] : [tracking],
-          embedded: !showAppBar,
-          onRefresh: refresh,
+          embedded: !widget.showAppBar,
+          onRefresh: _refresh,
         ),
       ),
     );
@@ -277,15 +352,36 @@ class _MapPane extends StatelessWidget {
   }
 }
 
-class _TrackingMap extends StatelessWidget {
+class _TrackingMap extends StatefulWidget {
   const _TrackingMap({required this.buses});
 
   final List<StudentLiveTracking> buses;
 
   @override
-  Widget build(BuildContext context) {
+  State<_TrackingMap> createState() => _TrackingMapState();
+}
+
+class _TrackingMapState extends State<_TrackingMap> {
+  GoogleMapController? _controller;
+  Set<Marker> _markers = {};
+
+  @override
+  void didUpdateWidget(_TrackingMap oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.buses != widget.buses) {
+      _updateMarkers();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  void _updateMarkers() {
     final markers = <Marker>{};
-    for (final bus in buses) {
+    for (final bus in widget.buses) {
       final location = bus.location;
       if (location == null) {
         continue;
@@ -299,18 +395,30 @@ class _TrackingMap extends StatelessWidget {
         ),
       );
     }
+    setState(() {
+      _markers = markers;
+    });
+    _updateCamera();
+  }
 
-    final cameraTarget = _centerOf(buses);
-    return GoogleMap(
-      initialCameraPosition: CameraPosition(
-        target: cameraTarget,
-        zoom: buses.length == 1 ? 15 : 12,
+  void _updateCamera() {
+    if (_controller == null || widget.buses.isEmpty) {
+      return;
+    }
+    final target = _centerOf(widget.buses);
+    _controller!.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(
+          target: target,
+          zoom: widget.buses.length == 1 ? 15 : 12,
+        ),
       ),
-      markers: markers,
-      myLocationEnabled: false,
-      myLocationButtonEnabled: false,
-      zoomControlsEnabled: true,
     );
+  }
+
+  void _onMapCreated(GoogleMapController controller) {
+    _controller = controller;
+    _updateMarkers();
   }
 
   LatLng _centerOf(List<StudentLiveTracking> buses) {
@@ -325,6 +433,9 @@ class _TrackingMap extends StatelessWidget {
       latitude += location.latitude;
       longitude += location.longitude;
       count++;
+    }
+    if (count == 0) {
+      return const LatLng(24.8607, 67.0011);
     }
     return LatLng(latitude / count, longitude / count);
   }
@@ -363,6 +474,25 @@ class _TrackingMap extends StatelessWidget {
                       label: 'Status',
                       value: _formatStatus(bus.tripStatus),
                     ),
+                    if (location != null && bus.isStale) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.warning_amber_outlined,
+                            size: 16,
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Location may be outdated',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.error,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -370,6 +500,21 @@ class _TrackingMap extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GoogleMap(
+      initialCameraPosition: CameraPosition(
+        target: _centerOf(widget.buses),
+        zoom: widget.buses.length == 1 ? 15 : 12,
+      ),
+      markers: _markers,
+      myLocationEnabled: false,
+      myLocationButtonEnabled: false,
+      zoomControlsEnabled: true,
+      onMapCreated: _onMapCreated,
     );
   }
 }
@@ -431,7 +576,7 @@ class _BusCard extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               hasLocation
-                  ? 'Last location: ${_formatDateTime(location!.recordedAt)}'
+                  ? 'Last location: ${_formatDateTime(location.recordedAt)}'
                   : 'Last location: No data yet',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: hasLocation ? null : theme.colorScheme.error,

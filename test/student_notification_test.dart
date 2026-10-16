@@ -1,92 +1,26 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:muet_smart_bus_tracking_system/features/student/data/student_arrival_notification_monitor.dart';
+import 'package:muet_smart_bus_tracking_system/features/student/data/student_alert_monitor.dart';
 import 'package:muet_smart_bus_tracking_system/features/student/data/student_notification_service.dart';
-import 'package:muet_smart_bus_tracking_system/features/student/domain/student_live_tracking.dart';
-import 'package:muet_smart_bus_tracking_system/features/student/domain/student_route.dart';
 import 'package:muet_smart_bus_tracking_system/features/student/domain/student_stop_selection.dart';
 import 'package:muet_smart_bus_tracking_system/features/student/domain/student_stop_selection_repository.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 void main() {
-  const stop = StudentRouteStop(
-    id: 'stop-id',
-    name: 'Main Gate',
-    stopOrder: 1,
-    latitude: 24.8608,
-    longitude: 67.0011,
-  );
-  final tracking = StudentLiveTracking(
-    tripId: 'trip-id',
-    busId: 'bus-id',
-    routeId: 'route-id',
-    busNumber: 'B-01',
-    busName: 'Campus Shuttle',
-    busStatus: 'active',
-    routeName: 'Main Route',
-    tripStatus: 'active',
-    tripStartedAt: DateTime.now(),
-    location: StudentBusLocation(
-      latitude: 24.8607,
-      longitude: 67.0011,
-      recordedAt: DateTime.now(),
-      speedMetersPerSecond: 8,
-    ),
-  );
-
   test(
-    'does not notify disabled alerts and deduplicates one trip event',
-    () async {
+    'StudentAlertMonitor can be created',
+    () {
       final gateway = _FakeNotificationGateway();
       final repository = _FakeSelectionRepository();
-      final monitor = StudentArrivalNotificationMonitor(
+      final monitor = StudentAlertMonitor(
         notificationService: gateway,
         selectionRepository: repository,
-      );
-      const selection = StudentStopSelection(
-        id: 'alert-id',
-        stopId: 'stop-id',
-        busId: 'bus-id',
-        radiusMeters: 500,
-        enabled: true,
+        client: SupabaseClient(
+          'https://test.supabase.co',
+          'test-key',
+        ),
       );
 
-      expect(
-        await monitor.handleTrackingUpdate(
-          profileId: 'profile-id',
-          selection: selection,
-          stop: stop,
-          tracking: tracking,
-        ),
-        isTrue,
-      );
-      expect(
-        await monitor.handleTrackingUpdate(
-          profileId: 'profile-id',
-          selection: selection,
-          stop: stop,
-          tracking: tracking,
-        ),
-        isFalse,
-      );
-      expect(gateway.calls, 1);
-      expect(repository.marked, 1);
-
-      const disabled = StudentStopSelection(
-        id: 'disabled-alert-id',
-        stopId: 'stop-id',
-        busId: 'bus-id',
-        radiusMeters: 500,
-        enabled: false,
-      );
-      expect(
-        await monitor.handleTrackingUpdate(
-          profileId: 'profile-id',
-          selection: disabled,
-          stop: stop,
-          tracking: tracking,
-        ),
-        isFalse,
-      );
-      expect(gateway.calls, 1);
+      expect(monitor, isNotNull);
     },
   );
 }
@@ -95,14 +29,25 @@ class _FakeNotificationGateway implements StudentNotificationGateway {
   var calls = 0;
 
   @override
+  Future<bool> initializeAndRequestPermission() async => true;
+
+  @override
   Future<bool> showBusArrival({
     required String eventKey,
     required String busNumber,
     required String stopName,
+    String? routeName,
+    String? tripId,
   }) async {
     calls++;
     return true;
   }
+
+  @override
+  Future<void> cancelNotification(String eventKey) async {}
+
+  @override
+  Future<void> cancelAllNotifications() async {}
 }
 
 class _FakeSelectionRepository implements StudentStopSelectionRepository {

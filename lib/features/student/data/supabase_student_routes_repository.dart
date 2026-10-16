@@ -71,6 +71,59 @@ class SupabaseStudentRoutesRepository implements StudentRoutesRepository {
     );
   }
 
+  @override
+  Future<List<StudentRouteDetails>> loadRoutesWithActiveBuses() async {
+    final rows = await _client
+        .from('routes')
+        .select(
+          'id, name, description, status, '
+          'stops(id, name, stop_order, latitude, longitude)',
+        )
+        .eq('status', 'active')
+        .order('name');
+
+    final routes = rows.map(_parseRoute).toList();
+    final routeDetails = <StudentRouteDetails>[];
+
+    for (final route in routes) {
+      final activeTrip = await _client
+          .from('trips')
+          .select('id, bus_id, started_at')
+          .eq('route_id', route.id)
+          .eq('status', 'active')
+          .order('started_at', ascending: false)
+          .limit(1)
+          .maybeSingle();
+
+      if (activeTrip == null) {
+        routeDetails.add(StudentRouteDetails(route: route));
+        continue;
+      }
+
+      final bus = await _client
+          .from('buses')
+          .select('bus_number, bus_name, status')
+          .eq('id', activeTrip['bus_id'] as String)
+          .maybeSingle();
+
+      routeDetails.add(
+        StudentRouteDetails(
+          route: route,
+          activeBus: bus == null
+              ? null
+              : ActiveRouteBus(
+                  busId: activeTrip['bus_id'] as String,
+                  busNumber: bus['bus_number'] as String,
+                  busName: bus['bus_name'] as String,
+                  status: bus['status'] as String,
+                ),
+        ),
+      );
+    }
+
+    return routeDetails;
+  }
+
   StudentRoute _parseRoute(Map<String, dynamic> row) {
     final rawStops =
         (row['stops'] as List<dynamic>? ?? const [])

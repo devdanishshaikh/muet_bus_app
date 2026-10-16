@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:muet_smart_bus_tracking_system/features/admin/domain/admin_dashboard_data.dart';
 import 'package:muet_smart_bus_tracking_system/features/admin/domain/admin_dashboard_repository.dart';
+import 'package:muet_smart_bus_tracking_system/features/admin/domain/admin_live_monitoring_data.dart';
 import 'package:muet_smart_bus_tracking_system/features/admin/presentation/admin_dashboard_page.dart';
 import 'package:muet_smart_bus_tracking_system/features/admin/presentation/admin_dashboard_providers.dart';
 import 'package:muet_smart_bus_tracking_system/features/auth/domain/authenticated_user.dart';
@@ -135,6 +136,9 @@ class _FakeAdminDashboardRepository implements AdminDashboardRepository {
 
   @override
   Future<AdminDashboardData> load() async => data;
+
+  @override
+  Future<List<MonitoredBus>> loadActiveTrips() async => const [];
 }
 
 class _FailingAdminDashboardRepository implements AdminDashboardRepository {
@@ -144,6 +148,9 @@ class _FailingAdminDashboardRepository implements AdminDashboardRepository {
   Future<AdminDashboardData> load() async {
     throw Exception('Unable to load overview');
   }
+
+  @override
+  Future<List<MonitoredBus>> loadActiveTrips() async => const [];
 }
 
 class _PendingAdminDashboardRepository implements AdminDashboardRepository {
@@ -153,4 +160,7 @@ class _PendingAdminDashboardRepository implements AdminDashboardRepository {
 
   @override
   Future<AdminDashboardData> load() => completer.future;
+
+  @override
+  Future<List<MonitoredBus>> loadActiveTrips() async => const [];
 }

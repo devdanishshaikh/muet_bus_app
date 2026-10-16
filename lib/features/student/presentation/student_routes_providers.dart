@@ -11,12 +11,17 @@ final studentRoutesRepositoryProvider = Provider<StudentRoutesRepository>(
 
 final activeStudentRoutesProvider =
     FutureProvider.autoDispose<List<StudentRoute>>((ref) {
-      return ref.watch(studentRoutesRepositoryProvider).loadRoutes();
-    });
+  return ref.watch(studentRoutesRepositoryProvider).loadRoutes();
+});
+
+final activeStudentRoutesWithBusesProvider =
+    FutureProvider.autoDispose<List<StudentRouteDetails>>((ref) {
+  return ref.watch(studentRoutesRepositoryProvider).loadRoutesWithActiveBuses();
+});
 
 final studentRouteDetailsProvider = FutureProvider.autoDispose
     .family<StudentRouteDetails?, String>((ref, routeId) {
-      return ref
-          .watch(studentRoutesRepositoryProvider)
-          .loadRouteDetails(routeId);
-    });
+  return ref
+      .watch(studentRoutesRepositoryProvider)
+      .loadRouteDetails(routeId);
+});

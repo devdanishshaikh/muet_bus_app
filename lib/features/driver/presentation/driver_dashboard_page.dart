@@ -77,14 +77,16 @@ class _DriverDashboardPageState extends ConsumerState<DriverDashboardPage>
             if (!mounted) {
               return;
             }
-            final controller = ref.read(
-              driverLocationControllerProvider.notifier,
-            );
-            if (data?.activeTrip == null) {
-              controller.stop();
-            } else {
-              controller.start(data!.activeTrip!.id);
-            }
+            try {
+              final controller = ref.read(
+                driverLocationControllerProvider.notifier,
+              );
+              if (data?.activeTrip == null) {
+                controller.stop();
+              } else {
+                controller.start(data!.activeTrip!.id);
+              }
+            } catch (_) {}
           });
           return data == null
               ? const _DriverProfileEmpty()
@@ -106,14 +108,20 @@ class _DriverDashboardContent extends ConsumerWidget {
     final isLoading = ref.watch(driverDashboardActionLoadingProvider(user.id));
     final locationState = ref.watch(driverLocationControllerProvider);
     final assignment = data.assignment;
-    return ListView(
+    debugPrint('BUILD: data.activeTrip = ${data.activeTrip}, canStartTrip = ${data.canStartTrip}, isLoading = $isLoading');
+    return SingleChildScrollView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(20),
-      children: [
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
         Text(
           'Welcome, ${data.driverName}',
           style: Theme.of(context).textTheme.headlineSmall,
         ),
         const SizedBox(height: 20),
+        _DriverProfileCard(user: user, data: data),
+        const SizedBox(height: 16),
         _AssignmentCard(assignment: assignment),
         const SizedBox(height: 16),
         _TripCard(trip: data.activeTrip),
@@ -122,11 +130,12 @@ class _DriverDashboardContent extends ConsumerWidget {
           _LocationStatusCard(state: locationState),
         ],
         const SizedBox(height: 24),
-        if (data.activeTrip != null)
+        if (data.activeTrip != null) ...[
           FilledButton.icon(
+            key: const Key('end-trip-button'),
             onPressed: isLoading
                 ? null
-                : () => _endTrip(context, ref, data.activeTrip!.id),
+                : () => _confirmEndTrip(context, ref, data.activeTrip!.id),
             icon: isLoading
                 ? const SizedBox.square(
                     dimension: 18,
@@ -135,8 +144,9 @@ class _DriverDashboardContent extends ConsumerWidget {
                 : const Icon(Icons.stop_circle_outlined),
             label: const Text('End trip'),
           )
-        else
+        ] else ...[
           FilledButton.icon(
+            key: const Key('start-trip-button'),
             onPressed: data.canStartTrip && !isLoading
                 ? () => _startTrip(context, ref, assignment!)
                 : null,
@@ -145,10 +155,12 @@ class _DriverDashboardContent extends ConsumerWidget {
                     dimension: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Icon(Icons.play_circle_outline),
+                : const Icon(Icons.play_circle_outlined),
             label: const Text('Start trip'),
           ),
+        ],
       ],
+    ),
     );
   }
 
@@ -180,6 +192,44 @@ class _DriverDashboardContent extends ConsumerWidget {
       ref.read(driverDashboardActionLoadingProvider(user.id).notifier).state =
           false;
     }
+  }
+
+  Future<void> _confirmEndTrip(
+    BuildContext context,
+    WidgetRef ref,
+    String tripId,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('End trip?'),
+          content: const Text(
+            'Are you sure you want to end this trip? This action cannot be undone.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('End trip'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) {
+      return;
+    }
+
+    if (!context.mounted) {
+      return;
+    }
+
+    await _endTrip(context, ref, tripId);
   }
 
   Future<void> _endTrip(
@@ -216,6 +266,58 @@ class _DriverDashboardContent extends ConsumerWidget {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
+  }
+}
+
+class _DriverProfileCard extends StatelessWidget {
+  const _DriverProfileCard({required this.user, required this.data});
+
+  final AuthenticatedUser user;
+  final DriverDashboardData data;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 28,
+              child: Text(
+                data.driverName.isNotEmpty
+                    ? data.driverName[0].toUpperCase()
+                    : '?',
+                style: theme.textTheme.titleLarge,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    data.driverName,
+                    style: theme.textTheme.titleMedium,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    user.email,
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Driver status: ${data.driverStatus}',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

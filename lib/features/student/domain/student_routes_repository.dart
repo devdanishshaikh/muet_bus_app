@@ -4,4 +4,6 @@ abstract interface class StudentRoutesRepository {
   Future<List<StudentRoute>> loadRoutes();
 
   Future<StudentRouteDetails?> loadRouteDetails(String routeId);
+
+  Future<List<StudentRouteDetails>> loadRoutesWithActiveBuses();
 }

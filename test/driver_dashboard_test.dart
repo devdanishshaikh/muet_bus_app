@@ -43,9 +43,13 @@ void main() {
               DriverDashboardData(
                 driverId: 'driver-id',
                 driverName: 'MUET Driver',
+                driverStatus: 'active',
                 assignment: assignment,
               ),
             ),
+          ),
+          driverDashboardActionLoadingProvider.overrideWith(
+            (ref, profileId) => false,
           ),
           driverLocationPublisherProvider.overrideWithValue(
             const _FakeDriverLocationPublisher(),
@@ -60,6 +64,36 @@ void main() {
     expect(find.text('B-01 • Campus Shuttle'), findsOneWidget);
     expect(find.text('Route: Main Route'), findsOneWidget);
     expect(find.text('Start trip'), findsOneWidget);
+  });
+
+  testWidgets('shows driver profile card with name, email, and status', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          driverDashboardRepositoryProvider.overrideWithValue(
+            const _FakeDriverDashboardRepository(
+              DriverDashboardData(
+                driverId: 'driver-id',
+                driverName: 'MUET Driver',
+                driverStatus: 'active',
+                assignment: assignment,
+              ),
+            ),
+          ),
+          driverLocationPublisherProvider.overrideWithValue(
+            const _FakeDriverLocationPublisher(),
+          ),
+        ],
+        child: const MaterialApp(home: DriverDashboardPage(user: driver)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('MUET Driver'), findsWidgets);
+    expect(find.text('driver@muet.edu.pk'), findsOneWidget);
+    expect(find.text('Driver status: active'), findsOneWidget);
   });
 
   testWidgets('shows end trip for an own active trip', (
@@ -78,6 +112,7 @@ void main() {
               DriverDashboardData(
                 driverId: 'driver-id',
                 driverName: 'MUET Driver',
+                driverStatus: 'active',
                 assignment: assignment,
                 activeTrip: trip,
               ),
@@ -93,8 +128,57 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Trip status: active'), findsOneWidget);
+    await tester.dragUntilVisible(
+      find.byKey(const Key('end-trip-button')),
+      find.byType(SingleChildScrollView),
+      const Offset(0, -200),
+    );
     expect(find.text('End trip'), findsOneWidget);
     expect(find.text('Start trip'), findsNothing);
+  });
+
+  testWidgets('shows confirmation dialog before ending trip', (
+    WidgetTester tester,
+  ) async {
+    final trip = DriverTrip(
+      id: 'trip-id',
+      status: 'active',
+      startedAt: DateTime.now(),
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          driverDashboardRepositoryProvider.overrideWithValue(
+            _FakeDriverDashboardRepository(
+              DriverDashboardData(
+                driverId: 'driver-id',
+                driverName: 'MUET Driver',
+                driverStatus: 'active',
+                assignment: assignment,
+                activeTrip: trip,
+              ),
+            ),
+          ),
+          driverLocationPublisherProvider.overrideWithValue(
+            const _FakeDriverLocationPublisher(),
+          ),
+        ],
+        child: const MaterialApp(home: DriverDashboardPage(user: driver)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.dragUntilVisible(
+      find.byKey(const Key('end-trip-button')),
+      find.byType(SingleChildScrollView),
+      const Offset(0, -200),
+    );
+    await tester.tap(find.byKey(const Key('end-trip-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('End trip?'), findsOneWidget);
+    expect(find.text('Are you sure you want to end this trip? This action cannot be undone.'), findsOneWidget);
+    expect(find.text('Cancel'), findsOneWidget);
   });
 
   testWidgets('protects the dashboard from students', (
@@ -113,6 +197,34 @@ void main() {
     );
 
     expect(find.byType(UnauthorizedPage), findsOneWidget);
+  });
+
+  testWidgets('shows unassigned state when no assignment exists', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          driverDashboardRepositoryProvider.overrideWithValue(
+            const _FakeDriverDashboardRepository(
+              DriverDashboardData(
+                driverId: 'driver-id',
+                driverName: 'MUET Driver',
+                driverStatus: 'active',
+              ),
+            ),
+          ),
+          driverLocationPublisherProvider.overrideWithValue(
+            const _FakeDriverLocationPublisher(),
+          ),
+        ],
+        child: const MaterialApp(home: DriverDashboardPage(user: driver)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('No active assignment'), findsOneWidget);
+    expect(find.text('Start trip'), findsOneWidget);
   });
 }
 

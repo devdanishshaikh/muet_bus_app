@@ -8,4 +8,13 @@ abstract interface class StudentLiveTrackingRepository {
   Future<List<StudentLiveTracking>> loadActiveBuses();
 
   Future<StudentLiveTracking?> load({String? routeId, String? busId});
+
+  /// Stream of active bus snapshots for Supabase Realtime integration.
+  ///
+  /// This is a placeholder for future Realtime implementation.
+  /// Currently returns an empty stream; will be connected to Supabase
+  /// Realtime channels in a later step.
+  Stream<List<StudentLiveTracking>> watchActiveBuses() async* {
+    yield [];
+  }
 }

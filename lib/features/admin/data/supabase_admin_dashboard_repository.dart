@@ -2,6 +2,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../domain/admin_dashboard_data.dart';
 import '../domain/admin_dashboard_repository.dart';
+import '../domain/admin_live_monitoring_data.dart';
+import '../data/supabase_admin_live_monitoring_repository.dart';
 
 class SupabaseAdminDashboardRepository implements AdminDashboardRepository {
   const SupabaseAdminDashboardRepository(this._client);
@@ -29,6 +31,13 @@ class SupabaseAdminDashboardRepository implements AdminDashboardRepository {
       activeRoutes: counts[5],
       activeTrips: counts[6],
     );
+  }
+
+  @override
+  Future<List<MonitoredBus>> loadActiveTrips() async {
+    // Reuse the live monitoring repository's logic for loading active trips
+    final repo = SupabaseAdminLiveMonitoringRepository(_client);
+    return repo.loadActiveTrips();
   }
 
   Future<int> _countAll(String table) async {

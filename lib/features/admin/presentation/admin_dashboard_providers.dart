@@ -7,6 +7,7 @@ import '../domain/admin_dashboard_data.dart';
 import '../domain/admin_dashboard_repository.dart';
 import '../domain/admin_transport_management_data.dart';
 import '../domain/admin_transport_management_repository.dart';
+import '../domain/admin_live_monitoring_data.dart';
 
 final adminDashboardRepositoryProvider = Provider<AdminDashboardRepository>(
   (ref) => SupabaseAdminDashboardRepository(Supabase.instance.client),
@@ -16,12 +17,16 @@ final adminDashboardProvider = FutureProvider.autoDispose<AdminDashboardData>(
   (ref) => ref.watch(adminDashboardRepositoryProvider).load(),
 );
 
+final activeAdminTripsProvider = FutureProvider.autoDispose<List<MonitoredBus>>(
+  (ref) => ref.watch(adminDashboardRepositoryProvider).loadActiveTrips(),
+);
+
 final adminTransportManagementRepositoryProvider =
     Provider<AdminTransportManagementRepository>(
-      (ref) => SupabaseAdminTransportManagementRepository(
-        Supabase.instance.client,
-      ),
-    );
+  (ref) => SupabaseAdminTransportManagementRepository(
+    Supabase.instance.client,
+  ),
+);
 
 final adminBusesProvider = FutureProvider.autoDispose<List<AdminBus>>(
   (ref) => ref.watch(adminTransportManagementRepositoryProvider).loadBuses(),
@@ -43,21 +48,21 @@ final adminStopsProvider = FutureProvider.autoDispose
 
 final adminBusDriverAssignmentsProvider =
     FutureProvider.autoDispose<List<AdminBusDriverAssignment>>(
-      (ref) => ref
-          .watch(adminTransportManagementRepositoryProvider)
-          .loadBusDriverAssignments(),
-    );
+  (ref) => ref
+      .watch(adminTransportManagementRepositoryProvider)
+      .loadBusDriverAssignments(),
+);
 
 final adminBusRouteAssignmentsProvider =
     FutureProvider.autoDispose<List<AdminBusRouteAssignment>>(
-      (ref) => ref
-          .watch(adminTransportManagementRepositoryProvider)
-          .loadBusRouteAssignments(),
-    );
+  (ref) => ref
+      .watch(adminTransportManagementRepositoryProvider)
+      .loadBusRouteAssignments(),
+);
 
 final adminRouteSchedulesProvider =
     FutureProvider.autoDispose<List<AdminRouteSchedule>>(
-      (ref) => ref
-          .watch(adminTransportManagementRepositoryProvider)
-          .loadRouteSchedules(),
-    );
+  (ref) => ref
+      .watch(adminTransportManagementRepositoryProvider)
+      .loadRouteSchedules(),
+);

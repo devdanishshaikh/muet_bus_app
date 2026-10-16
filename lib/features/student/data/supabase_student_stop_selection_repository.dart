@@ -18,7 +18,12 @@ class SupabaseStudentStopSelectionRepository
 
     final rows = await _client
         .from('student_alerts')
-        .select('id, stop_id, bus_id, radius_meters, enabled, triggered_at')
+        .select('''
+          id, stop_id, bus_id, radius_meters, enabled, triggered_at,
+          buses!bus_id (bus_number, bus_name),
+          stops!stop_id (name, route_id),
+          routes!stops_route_id (name)
+        ''')
         .eq('student_id', student['id'] as String)
         .order('created_at', ascending: false);
 
@@ -58,9 +63,7 @@ class SupabaseStudentStopSelectionRepository
                 'radius_meters': radiusMeters,
                 'enabled': true,
               })
-              .select(
-                'id, stop_id, bus_id, radius_meters, enabled, triggered_at',
-              )
+              .select('id, stop_id, bus_id, radius_meters, enabled, triggered_at')
               .single()
         : await _client
               .from('student_alerts')
@@ -72,12 +75,14 @@ class SupabaseStudentStopSelectionRepository
               })
               .eq('id', existing['id'] as String)
               .eq('student_id', studentRecordId)
-              .select(
-                'id, stop_id, bus_id, radius_meters, enabled, triggered_at',
-              )
+              .select('id, stop_id, bus_id, radius_meters, enabled, triggered_at')
               .single();
 
-    return _parse(row);
+    // Fetch the full alert with related data
+    return loadForStudent(profileId).then((alerts) {
+      final alert = alerts.firstWhere((a) => a.id == row['id'] as String);
+      return alert;
+    });
   }
 
   @override
@@ -141,6 +146,10 @@ class SupabaseStudentStopSelectionRepository
   }
 
   StudentStopSelection _parse(Map<String, dynamic> row) {
+    final bus = row['buses'] as Map<String, dynamic>?;
+    final stop = row['stops'] as Map<String, dynamic>?;
+    final route = stop != null ? stop['routes'] as Map<String, dynamic>? : null;
+
     return StudentStopSelection(
       id: row['id'] as String,
       stopId: row['stop_id'] as String,
@@ -150,6 +159,10 @@ class SupabaseStudentStopSelectionRepository
       triggeredAt: row['triggered_at'] == null
           ? null
           : DateTime.tryParse(row['triggered_at'].toString()),
+      busNumber: bus?['bus_number'] as String?,
+      busName: bus?['bus_name'] as String?,
+      stopName: stop?['name'] as String?,
+      routeName: route?['name'] as String?,
     );
   }
 }

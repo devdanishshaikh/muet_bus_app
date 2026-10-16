@@ -99,4 +99,7 @@ class _FakeStudentRoutesRepository implements StudentRoutesRepository {
   @override
   Future<StudentRouteDetails?> loadRouteDetails(String routeId) async =>
       details;
+
+  @override
+  Future<List<StudentRouteDetails>> loadRoutesWithActiveBuses() async => [];
 }

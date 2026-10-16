@@ -18,17 +18,17 @@ final driverLocationControllerProvider =
 
 class DriverLocationController
     extends AutoDisposeNotifier<DriverLocationState> {
-  late final DriverLocationPublisher _publisher;
+  DriverLocationPublisher? _publisher;
   StreamSubscription<DriverLocationState>? _subscription;
   String? _activeTripId;
 
   @override
   DriverLocationState build() {
     _publisher = ref.watch(driverLocationPublisherProvider);
-    _subscription = _publisher.states.listen((next) => state = next);
+    _subscription = _publisher!.states.listen((next) => state = next);
     ref.onDispose(() {
       unawaited(_subscription?.cancel());
-      unawaited(_publisher.stop());
+      unawaited(_publisher?.stop());
     });
     return const DriverLocationState.idle();
   }
@@ -39,15 +39,15 @@ class DriverLocationController
       return;
     }
     _activeTripId = tripId;
-    await _publisher.start(tripId: tripId);
+    await _publisher?.start(tripId: tripId);
   }
 
-  Future<void> pause() => _publisher.pause();
+  Future<void> pause() => _publisher?.pause() ?? Future.value();
 
-  Future<void> resume() => _publisher.resume();
+  Future<void> resume() => _publisher?.resume() ?? Future.value();
 
   Future<void> stop() async {
     _activeTripId = null;
-    await _publisher.stop();
+    await _publisher?.stop();
   }
 }

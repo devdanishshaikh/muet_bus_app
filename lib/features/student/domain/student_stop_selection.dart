@@ -6,6 +6,10 @@ class StudentStopSelection {
     required this.radiusMeters,
     required this.enabled,
     this.triggeredAt,
+    this.busNumber,
+    this.busName,
+    this.stopName,
+    this.routeName,
   });
 
   final String id;
@@ -14,4 +18,8 @@ class StudentStopSelection {
   final double radiusMeters;
   final bool enabled;
   final DateTime? triggeredAt;
+  final String? busNumber;
+  final String? busName;
+  final String? stopName;
+  final String? routeName;
 }

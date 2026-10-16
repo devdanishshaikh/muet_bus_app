@@ -72,5 +72,7 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>Notifications are used to alert you when your bus is approaching a selected stop.</string>
 </dict>
 </plist>

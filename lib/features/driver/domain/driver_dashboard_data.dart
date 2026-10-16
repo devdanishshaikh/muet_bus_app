@@ -2,12 +2,14 @@ class DriverDashboardData {
   const DriverDashboardData({
     required this.driverId,
     required this.driverName,
+    required this.driverStatus,
     this.assignment,
     this.activeTrip,
   });
 
   final String driverId;
   final String driverName;
+  final String driverStatus;
   final DriverAssignment? assignment;
   final DriverTrip? activeTrip;
 

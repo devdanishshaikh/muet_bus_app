@@ -87,11 +87,9 @@ class _RouteDetailsContent extends ConsumerWidget {
           if (liveTracking != null) {
             unawaited(
               ref
-                  .read(studentArrivalNotificationMonitorProvider)
-                  .handleTrackingUpdate(
+                  .read(studentAlertMonitorProvider)
+                  .processLocationUpdate(
                     profileId: user.id,
-                    selection: savedSelection,
-                    stop: selectedStop,
                     tracking: liveTracking,
                   ),
             );
